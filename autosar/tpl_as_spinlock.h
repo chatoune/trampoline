@@ -31,9 +31,9 @@
 #include "tpl_os_types.h"
 
 /**
- * @typedef CoreIDType
+ * @typedef SpinlockIDType
  *
- * A core identifier.
+ * A spinlock identifier.
  *
  */
 typedef tpl_spinlock_id  SpinlockIdType;
@@ -53,9 +53,9 @@ typedef tpl_spinlock_id  SpinlockIdType;
 
 
 /**
- * @typedef CoreIDType
+ * @typedef TryToGetSpinlockType
  *
- * A core identifier.
+ * An occupied spinlock identifier.
  *
  */
 typedef tpl_try_to_get_spinlock_type  TryToGetSpinlockType;

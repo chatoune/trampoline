@@ -1,0 +1,98 @@
+OIL_VERSION  = "2.5";   /* Latest OIL specification revision */
+CPU bms_master {
+
+/* =============================================================================
+ * APPMODE
+ * 
+ * At least one APPMODE must be present
+ */
+    APPMODE OsAppMode{};
+
+/* =============================================================================
+ * OS 
+ *
+ * Only one OS object should be present
+ */
+    OS os {
+        NUMBER_OF_CORES = 1;
+        USEVLE = TRUE;
+
+        STATUS = EXTENDED;
+        STARTUPHOOK = FALSE;
+        ERRORHOOK = FALSE;
+        SHUTDOWNHOOK = FALSE;
+        PRETASKHOOK = FALSE;
+        POSTTASKHOOK = FALSE;
+        USEGETSERVICEID = FALSE;
+        USEPARAMETERACCESS = FALSE;
+        USERESSCHEDULER = FALSE;
+    }
+
+    TASK task_1 {
+        PRIORITY = 4;
+        SCHEDULE = FULL;    /* Preemptable task */
+        ACTIVATION = 1;     /* Only one activation at a time, no queueing */
+        AUTOSTART = FALSE;
+        RESOURCE = resource_1;
+        /* no MESSAGE object is used */
+    }
+
+    TASK task_2 {
+        PRIORITY = 6;
+        SCHEDULE = FULL;    /* Preemptable task */
+        ACTIVATION = 1;     /* Only one activation at a time, no queueing */
+        AUTOSTART = FALSE;
+        RESOURCE = resource_2;
+        EVENT = event_1;
+        /* no MESSAGE object is used */
+    }
+
+    COUNTER counter_1 {
+        MAXALLOWEDVALUE = 100;  /* Maximum value is 100, for 1000 ms */
+        TICKSPERBASE = 10;      /* 10 ms counter */
+        MINCYCLE = 2;           /* an alarm cannot be lower than 20 ms */
+    }
+
+    ALARM alarm_1 {
+        COUNTER = counter_1;    /* Only one counter can be assigned */
+        ACTION = ACTIVATETASK { /* Only one action per alarm */
+            TASK = task_1;      /* ACTIVETASK/SETEVENT/ALARMCALLBACK */
+        };
+        AUTOSTART = FALSE;
+    }
+
+    ALARM alarm_2 {
+        COUNTER = counter_1;
+        ACTION = SETEVENT {
+            TASK = task_2;
+            EVENT = event_1;
+        }
+        AUTOSTART = TRUE;
+    }
+
+    RESOURCE resource_1 {
+        RESOURCEPROPERTY = STANDARD;
+    }
+
+    RESOURCE resource_2 {
+        RESOURCEPROPERTY = INTERNAL;
+    }
+
+    EVENT event_1 {
+        MASK = 0x80;    /* the AUTO parameter will assign a free bit in the mask */
+    }
+
+    ISR isr_1 {
+        CATEGORY = 2;   /* This ISR is using system services, i.e. activate a task */
+        RESOURCE = resource_1;
+        /* An optional MESSAGE object can be used when communication is used */
+    }
+
+    ISR isr_2 {
+        CATEGORY = 1;   /* CATEGORY can have 1 or 2 as a value */
+    }
+
+    /* There is support for OSEK communication */
+    /* MESSAGE objects are defined by the supplier while */
+    /* NETWORKMESSAGE objects are defined by the OEM */
+}

@@ -1,0 +1,241 @@
+ENTRY(_start)
+
+BOOT_LOCATION_0 = 0x00F98000;
+BOOT_LOCATION_1 = 0x00F9C000;
+BOOT_LOCATION_2 = 0x00FA0000;
+BOOT_LOCATION_3 = 0x00FB0000;
+BOOT_LOCATION_4 = 0x01000000;
+BOOT_LOCATION_5 = 0x01040000;
+BOOT_LOCATION_6 = 0x01080000;
+BOOT_LOCATION_7 = 0x010C0000;
+
+MEMORY
+{
+  /* EEPROM emulated area */
+  EEPROM_low_block_0        (ax) : ORIGIN = 0x00800000, LENGTH = 16KB
+  EEPROM_low_block_1        (ax) : ORIGIN = 0x00804000, LENGTH = 16KB
+  EEPROM_mid_block_0        (ax) : ORIGIN = 0x00808000, LENGTH = 32KB
+  EEPROM_mid_block_1        (ax) : ORIGIN = 0x00818000, LENGTH = 32KB
+
+  /* Small flash memory blocks */
+  low_flash_memory_block_2  (ax) : ORIGIN = 0x00A00000, LENGTH = 16KB
+  low_flash_memory_block_3  (ax) : ORIGIN = 0X00F9C000, LENGTH = 16KB
+
+  /* Medium flash memory blocks */
+  high_flash_memory_block_0 (ax) : ORIGIN = 0x00FA0000, LENGTH = 64KB
+  high_flash_memory_block_1 (ax) : ORIGIN = 0x00FB0000, LENGTH = 64KB
+  high_flash_memory_block_2 (ax) : ORIGIN = 0x00FC0000, LENGTH = 64KB
+  high_flash_memory_block_3 (ax) : ORIGIN = 0x00FD0000, LENGTH = 64KB
+  high_flash_memory_block_4 (ax) : ORIGIN = 0x00FE0000, LENGTH = 64KB
+  high_flash_memory_block_5 (ax) : ORIGIN = 0x00FF0000, LENGTH = 64KB
+
+  /* Large flash memory blocks - model dependent */
+  flash_memory_block_0      (ax) : ORIGIN = 0x01000000, LENGTH = 256KB
+  flash_memory_block_1      (ax) : ORIGIN = 0x01040000, LENGTH = 256KB
+  flash_memory_block_2      (ax) : ORIGIN = 0x01080000, LENGTH = 256KB
+  flash_memory_block_3      (ax) : ORIGIN = 0x010C0000, LENGTH = 256KB
+  flash_memory_block_4      (ax) : ORIGIN = 0x01100000, LENGTH = 256KB
+  flash_memory_block_5      (ax) : ORIGIN = 0x01140000, LENGTH = 256KB
+  flash_memory_block_6      (ax) : ORIGIN = 0x01180000, LENGTH = 256KB
+  flash_memory_block_7      (ax) : ORIGIN = 0x011C0000, LENGTH = 256KB
+
+  /* System RAM */
+  system_ram_block_0        (wx) : ORIGIN = 0x40000000, LENGTH = 128KB
+  system_ram_block_1        (wx) : ORIGIN = 0x40020000, LENGTH = 64KB
+  system_ram_block_2        (wx) : ORIGIN = 0x40030000, LENGTH = 64KB
+  system_ram_block_3        (wx) : ORIGIN = 0x40040000, LENGTH = 128KB
+
+  /* Local memory D-MEM CPU0 */
+  local_ram                 (wx) : ORIGIN = 0X50800000, LENGTH = 64KB
+}
+
+SECTIONS
+{
+  .vector_external_interrupt : { *(.EI_vector) } > external_interrupt
+  .vector_system_call :        { *(.SC_vector) } > system_call
+
+  /*
+   * code and consts of the operating system (Trampoline).
+   * this section is not accessible from an untrusted process
+   */
+  . = ALIGN(4);
+  ostext : {
+    *(.SC_handler)
+    *(.EI_handler)
+    *(.osCode)
+    *(.appCommonCode) 
+  } > ram
+
+  . = ALIGN(4);
+  osconst : {
+    *(.osConst)
+  } > ram
+  
+  /*
+   * remaining .text (ie no section given)
+   */
+  . = ALIGN(4);
+  text_garbage : {
+    *(.text)
+    *(.ctors)
+    *(.dtors)
+
+  } > ram
+
+  other_garbage : {
+    *(.init)
+    *(.fini)
+  } > ram
+  
+  /*
+   * vars of the operating system (Trampoline)
+   */
+  osvars : {
+    *(.osVar)
+  } > ram
+
+  /*
+   * code and consts of the processes of the applications
+   */
+  . = ALIGN(32);
+  apptext : { /* MPC5510 MPU requires 32 bytes alignment */
+    __PROGCONST_SECTION_START = .;
+    __SEG_START_APP_CODE_CONST_RGN = .;
+    *(.osApiConst)  /* API constants    */
+    *(.rodata)      /* litteral strings */
+    . = ALIGN(4);
+    *(.osApiCode)   /* API functions    */
+    /* Sections for code of tasks and ISR */%
+foreach proc in PROCESSES do
+%
+    *(.% !proc::KIND %_% !proc::NAME %Code)
+%
+end foreach
+foreach isr in ISRS1 do
+%
+    *(.ISR_% !isr::NAME %Code)
+%
+end foreach
+%
+  } > ram
+  
+  appconst : {
+     /* Sections for application const */  
+%
+foreach app in APPLICATIONS do
+ for DATA_SIZE in "32BIT","16BIT","8BIT","BOOLEAN","UNSPECIFIED" do
+  for SECTION_KIND in "_CONST_","_CALIB_","_CARTO_","_CONFIG_DATA_" do
+%      *(.OS_APP_% !app::NAME %_SEC% !SECTION_KIND !DATA_SIZE %)
+%
+  end for
+ end for
+end foreach
+%
+    . = ALIGN(32);
+  } > ram
+
+  procconst : {
+    /* Sections for const of tasks and ISR */
+%
+foreach proc in PROCESSES do
+ for DATA_SIZE in "32BIT","16BIT","8BIT","BOOLEAN","UNSPECIFIED" do
+  for SECTION_KIND in "_CONST_","_CALIB_","_CARTO_","_CONFIG_DATA_" do
+%      *(.% !proc::KIND %_% !proc::NAME %_SEC% !SECTION_KIND !DATA_SIZE %)
+%
+  end for
+ end for
+end foreach
+%    
+    . = ALIGN(32);
+    __SEG_STOP_APP_CODE_CONST_RGN = . - 1;
+    __PROGCONST_SECTION_STOP = . - 1;
+  } > ram
+  
+  /*
+   * bss data
+   */
+  bss_data : {
+    *(.bss) *(.sbss)  /* *(.sbss2) */
+  } > ram
+  . = ALIGN(32);
+
+  /*
+   * private data of processes
+   */
+%
+foreach proc in PROCESSES do
+%  .% !proc::KIND %_% !proc::NAME %_SEC_VAR : {
+    . = ALIGN(32);
+    __SEG_START_% !proc::KIND %_% !proc::NAME %_VAR_RGN = .;
+/* Initialized variables section of % !proc::KIND % % !proc::NAME % */
+%
+  for DATA_SIZE in "32BIT","16BIT","8BIT","BOOLEAN","UNSPECIFIED" do
+    for SECTION_KIND in "_NOINIT_","_POWER_ON_INIT_","_FAST_","_" do
+%    *(.% !proc::KIND %_% !proc::NAME %_SEC_VAR% !SECTION_KIND !DATA_SIZE %)
+%
+    end for
+  end for
+%    __SEG_END_% !proc::KIND %_% !proc::NAME %_VAR_RGN = ALIGN(32) - 1;
+  } > ram
+%
+end foreach
+%
+
+  /*
+   * stack of processes
+   */
+%
+foreach proc in PROCESSES do %
+  /* Section of stack of % !proc::KIND % % !proc::NAME %  */
+  .% !proc::KIND %_% !proc::NAME %_SEC_STACK ALIGN(32) : {
+    __SEG_START_% !proc::KIND %_% !proc::NAME %_STACK_RGN = .;
+    *(.% !proc::KIND %_% !proc::NAME %Stack)
+    __SEG_END_% !proc::KIND %_% !proc::NAME %_STACK_RGN = ALIGN(32) - 1;
+  } > ram
+%
+end foreach
+%
+  /*
+   * os application data
+   */
+   appvars : {
+%
+foreach app in APPLICATIONS do
+%    __SEG_START_OS_APP_% !app::NAME %_VAR_RGN = .;
+/* Initialized variables section of OS_APP % !app::NAME % */
+%
+  for DATA_SIZE in "32BIT","16BIT","8BIT","BOOLEAN","UNSPECIFIED" do
+    for SECTION_KIND in "_NOINIT_","_POWER_ON_INIT_","_FAST_","_" do
+%    *(.OS_APP_% !app::NAME %_SEC_VAR% !SECTION_KIND !DATA_SIZE %)
+%
+    end for
+  end for
+%    __SEG_END_OS_APP_% !app::NAME %_VAR_RGN = ALIGN(16) - 1;
+%
+end foreach
+% 
+  } > ram
+
+  
+  /*
+   * garbage
+   */
+  data_garbage : {
+    *(.data)
+    *(.sdata)
+    *(.sdata2)
+    *(.got)
+    *(.got1)
+    *(.got2)
+    *(.fixup)
+    *(.gcc_except_table)
+    *(.eh_frame)
+    *(.jcr)
+  } > ram
+  .comment :        { *(.comment)        } > ram
+  relocatable : {
+    *(.rela.*)
+  } > ram
+
+}
+

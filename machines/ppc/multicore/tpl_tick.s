@@ -70,7 +70,7 @@ TPL_GLOBAL_REF(tpl_init_dec):
   mtspr     spr_TBU, r11
   mtspr     spr_TBL, r11
 
-  /* load dec and decar register with value correcponding to tick period */
+  /* load dec and decar register with value corresponding to tick period */
   e_lis     r11,TPL_HIG(TPL_EXTERN_REF(tpl_dec_init_value))
   e_add16i  r11,TPL_LOW(TPL_EXTERN_REF(tpl_dec_init_value))
   e_lwz     r11,0(r11)

@@ -1,0 +1,194 @@
+= Porting trampoline to the MPC574xP platform
+===========================================
+Eddy DERICK <eddy.derick@bovoev.com>
+V0.1, July 2019
+
+This document details all the steps to port the trampoline RTOS to the MPC574xP platform.
+
+The OSEK compatibility for the first one being implemented followed by the AUTOSAR compatibility layer.
+
+All the test have been done on the "DEVKIT-MPC5744P" available on NXP's website.
+
+== Understanding the OIL parser
+The OIL parser generates lists of objects which are filled with the informùations conatined in the OIL file.
+
+Once the file has been parsed, a set of scripts are used to generate all the source, compiler and linker files.
+
+=== OIL main script
+The main script is located in the "trampoline/goil" directory and is called "root.goilTemplate".
+
+The following paragraph describes the algorithm's steps to generate the OS files based on teh content of the OIL file.
+
+==== OIL algorithm
+Here is the steps used by the algorithm to generate the OS files.
+
+. Determine the OS version (AUTOSAR or OSEK)
+. Check some vsion specific elements
+. Initialize objects list
+. Launch a verification script
+. Build IOC dataset
+. Compute some generic flags
+. Compute many AUTOSAR variables (right now OSEK only)
+. Build the TASKS list and set its attributes
+. Build the ISRS list and set its attributes
+. Build the RESOURCES list and set its attributes
+. Concatenate the TASKS, ISRS and RESOURCES lists into a single one (PRIORITIZED)
+. Sort the PRIORITIZE list bu ascending PRIORITY attribute
+. Reassign objects priorities (From 1 to ..)
+. Compute different data related to processes and resources
+
+OIL files contains either OSEK or AUTOSAR OS description information.
+
+The script determines which kind based on the OIL_VERSION value, the variable AUTOSAR is created based on this version.
+
+The following table gives a summary of the versions.
+
+.Table OS Versions
+|===
+| OS_VERSION | Kind of OS
+
+| 2.5 | OSEK
+| 3.1 | AUTOSAR
+| 4.0 | AUTOSAR
+|===
+
+
+
+The script will then build lists of objects using the content extracted from the OIL file.
+
+To ease the process, the scripts check all lists and creates an empty one if the information is not in the OIL script.
+
+The following list are used in the scripts:
+
+* APPMODE
+* TASK
+* ISR
+* EVENT
+* COUNTER
+* ALARM
+* RESOURCE
+* MESSAGE
+* APPLICATION
+* SCHEDULETABLE
+* IOC
+* TRANSACTION
+* OBJECT
+* SPINLOCK
+
+===== TASKS list and attributes definition
+The script is adding several attributes to each task.
+
+* PRIORITY
+* UNSEINTERNALRESOURCE
+* CORE (for multicore configuration)
+* KIND ("Task", amongst "Task" or "ISR")
+
+Priority assignment is done the following way:
+
+- The priority 0 is reserved for the IDLe task.
+- The initial priority is multiplied by two to manage resources' priorities.
+
+The formula to calculate the priority is 2*OIL(PRIORITY) + 1.
+
+PRIORITY is of type UINT32 and consequently in the range [0 .. 2^32^ - 1].
+
+The calculated priority is in the range [1 .. 2^33^].
+
+So the maximum value for a task priority is 2^31^-1.
+
+The distance between to calculated values is always 2:
+
+- (2 * (n + 1) + 1)  - (2 * n + 1) = 2n + 3 - 2n - 1 = 2
+
+So there is always an available priority number available for a resource.
+
+Usage of internal resources is determined by checking the RESOURCEPROPERTY attribute of each resource used by the task.
+
+There should only be one internal resource per task.
+
+The script is setting the USEINTERNALRESOURCE and INTERNALRESOURCE (resource's name) to the task.
+
+If the task is non-preemptable, it cannot have an internal resource.
+
+The SCHEDULE attribute of a task determines whether it is pre-emptable or not.
+
+A non-preemptable task will have the INTERNAL_SCHEDULER_STRUCT assigned as an internal resource.
+
+The name of the scheduler resource is "INTERNAL_RES_SCHEDULER".
+
+Finally the KIND attribute with the value "Task" is added to each task object.
+
+At the end, all task objects in the TASKS list will have been initialized, the resource scheduler added (if used) and the task_max_priority calculated.
+
+===== ISRS list and attributes definition
+The script builds a list of ISRs in the ISRS list.
+
+A priority is defined with the following constraints:
+
+- The priorities of the ISRs must be higher than the Tasks' priorities
+- Some space must be reserved to manage resources' priorities
+
+The two attributes which are set are PRIORITY and KIND ("ISR")
+
+As we are using the same formula to calculate the ISR's piority, we should also check the boundaries and the calculation and the value of the task_max_priority.
+
+Moreover the priority of an ISR is always greater than the priority of a task.
+
+===== RESOURCES list and attributes definition
+For each resource, build the list of the tasks and isrs that are using the resource.
+
+The assigned priority is the highest priority of the processes that are using the resource to which we add 1.
+
+===== Compute different data related to processes and resources
+The script extract the following informations from the data
+
+.Table Data set by the script
+|===
+| Data | Definition
+
+| PRIO2
+| List of Tasks, Resources and ISRs sorted ascending with priority reattribution starting with priority 1.
+
+| MAX_JOB_AMONG_PRIORITIES
+| Contains the maximum number of tasks per priority (including the nunmber of activations)
+
+| NUMBER_OF_PRIORITIES
+| Number of priorities used for tasks, resources and ISRs
+
+| READY_LIST_SIZE
+| Contains the tasks, ISR, and Resource (including the number of activations for each task)
+
+| BASICTASKS
+| Contains all the basic tasks of the system
+
+| EXTENDEDTASKS
+| Contains all the extended tasks of the system (compatible with the WaitEvent mechanism)
+
+| TASKS
+| List all the tasks in the OS, basic and extended
+
+| PROCESSES
+| List all the processes in the SO, basic  and extended tasks, plus ISR of category 2
+
+| highest_priority_task_uses_resource
+| Contains the highest task's priority that is using a resource
+
+| OS::RESSCHEDULERPRIORITY
+| Stores the highest task priority, it will be used to set the scheduler resource priority (+1)
+
+| RESOURCES
+| Contains all the resources sued by the OS
+
+| ISRS1
+| List of ISR of category 1
+
+| ISR2
+| List of ISR of Category 2
+
+| CORES[n]
+| Contains two attributes, TASKS and ISRS which respectively lists all the tasks and ISRs assigned to each core. If there is only one application, only the core numbered 0 is used.
+
+|
+|
+|===
+

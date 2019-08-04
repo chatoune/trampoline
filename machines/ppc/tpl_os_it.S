@@ -48,7 +48,7 @@
  * called from an OS service, whe already are in an interrupt handler.
  * So the interrupt bit is not in the MSR but has been saved in the SRR1
  * register.
- * Since MSR will be restored with the content od the SRR1 register when
+ * Since MSR will be restored with the content of the SRR1 register when
  * we will return from interrupt, we change set the interrupt bit in
  * this register.
  */
