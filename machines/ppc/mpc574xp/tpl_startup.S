@@ -29,7 +29,7 @@
  #include "tpl_registers_e200z4.h"
 
 ; Because of the Lockstep mode of the MPC574xP family
-; regsiters needs to be initisalized to avoid exceptions
+; regsiters needs to be initialized to avoid exceptions
 ; being triggered while operating
 TPL_GLOBAL(tpl_reset_registers)
 TPL_GLOBAL_REF(tpl_reset_registers):
