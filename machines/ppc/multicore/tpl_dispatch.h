@@ -52,11 +52,17 @@
  *
  * @see #tpl_sc_handler
  */
+#if (WITH_VLE == YES)
+#define TPL_SYSCALL(os_service_id)  \
+        e_li    r0,(os_service_id); \
+        se_sc;
+#else
 #define TPL_SYSCALL(os_service_id)  \
         li r0,(os_service_id);      \
         sc;
 
 /* TPL_DISPATCH_H */
+#endif
 #endif
 
 /* End of file tpl_dispatch.h */
