@@ -9,6 +9,68 @@ The OSEK compatibility for the first one being implemented followed by the AUTOS
 
 All the test have been done on the "DEVKIT-MPC5744P" available on NXP's website.
 
+== Understanding the OSEK specifications
+OSEK is a static RTOS (Real-Time Operating System) developed for the automotive industry by French and German OEMs.
+
+OSEK can manage tasks (some might be interrupted), event, alarms, resources (shared or not) all while providing a safety level compliant with the industry due to its static aspect.
+There are limits to the OS depending on it conformance class.
+
+|===
+| | BCC1 | BCC2 | ECC1 | ECC2
+
+| Multiple requesting of task activation | no | yes | Basic task (BT): no +
+Extended task (ET): no | BT: yes +
+ET: no
+
+| Number of tasks which are not in the suspended state 2+>| 8 2+>| 16 +
+(any combination of BT/ET)
+
+| More than one task per priority | no | yes | no +
+(both BT/ET) | yes +
+(both BT/ET)
+
+| Number of events per task 2+>| - 2+>| 8
+
+| Number of task priorities 2+>| 8 2+>| 16
+
+| Resources | RES_SCHEDULER 3+>| 8 (including RES_SCHEDULER)
+
+| Internal resources 4+>| 2
+
+| Alarm 4+>| 1
+
+| Application Mode 4+>| 1
+|===
+
+|=== Events
+Events are defined by the two following attributes
+
+|===
+| Attribute | Type | Description
+
+| NAME | STRING | Name of the attribute as defined in the OIL file descriptor
+
+| MASK | UINT64 | A mask used to differentiate attributs among them +
+Only one bit must be set to 1 in the mask +
+The value 0 is forbidden
+|===
+
+An event can be used by more than one task. Each task using events must have them being defined in the OIL file.
+
+== Converting from PowerPC ISA to VLE
+ldw => e_ldw
+stw => e_stw
+
+Removing the use of intrinsics, because we do not know if the compiler will support them.
+blr
+
+=== VLE restriction on registers
+Because of the 16 bits encoding of the instructions, all GPR registers are not accessible from those instructions.
+Only GPR0-GPR7 and GPR24-GPR31 can be accessed.
+Moving data between the laternate registers and the registers used in 16 bits instructions is done via the mtar and mfar instructions.
+
+
+
 == Understanding the OIL parser
 The OIL parser generates lists of objects which are filled with the informùations conatined in the OIL file.
 
@@ -188,7 +250,21 @@ The script extract the following informations from the data
 | CORES[n]
 | Contains two attributes, TASKS and ISRS which respectively lists all the tasks and ISRs assigned to each core. If there is only one application, only the core numbered 0 is used.
 
-|
-|
+| HARDWARECOUTNERS
+| List all the counters with attribute "TYPE" equals to "HARDWARE" and also counters without the "TYPE" attribute.
+
+| SOFTWARECOUNTERS
+| List all the counters with attribute "TYPE" equals to "SOFTWARE"
+
+| USEREVENTS
+| List of all the events with an integer MASK attribute. +
+When assigning automatic event mask and generating list opf events per task the script is checking that two different events with the same mask are not assigned to a single task. +
+The mask value "0" is also forbidden by the standard.
+
+| AUTOEVENTS
+| List of all the events without a defined mask
+
+| tasks_for_event
+| Creates a map of events and assign for each event a list of tasks using it
 |===
 
