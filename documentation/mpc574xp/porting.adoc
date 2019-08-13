@@ -18,7 +18,7 @@ There are limits to the OS depending on it conformance class.
 |===
 | | BCC1 | BCC2 | ECC1 | ECC2
 
-| Multiple requesting of task activation | no | yes | Basic task (BT): no +
+| Multiple requesting of task activation ^.^|no | yes | Basic task (BT): no +
 Extended task (ET): no | BT: yes +
 ET: no
 
