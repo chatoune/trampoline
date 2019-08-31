@@ -1,0 +1,25 @@
+= Managing interruptions on the MPC574xP platform
+=================================================
+Eddy DERICK <eddy.derick@bovoev.com>
+V0.1, August 2019
+
+= Interruptions
+
+== Interruption mechanism and control
+
+== Critical interruptions
+Care must be taken whenever dealing with critical interruption, all critical input exception status must be cleared before enabling criticial interruptions again.
+The risk is to enter an infinite loop if this is not managed properly.
+
+Activation and deactivation of the critical interruption is done settting/resetting MSR[CE].
+
+ToDo: List all the possible critical interruption source.
+
+== Machine check, NIM, and Error report interruptions
+Those three functions shared the same interruption vector.
+
+Beside using registers MCSRR0 and MCSRR1, an address is also stored into MCAR.
+MCSR is used to identifiy the error condition and the instruction rfmci is used to return from this interrupt.
+Table 15-27 of the MPC5744PRM[1] shows the type of interruption for each bit among the three values "Async Mchk", "NMI", and "Error Report".
+Activation and deactivation of this interrupt is done setting/resetting MSR[ME].
+
